@@ -1,0 +1,6 @@
+"STARTUP.obj",
+".\key.obj",
+".\main.obj",
+".\lcd1602.obj" 
+TO "1" 
+RAMSIZE(256) 

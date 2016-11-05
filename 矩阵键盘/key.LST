@@ -1,0 +1,210 @@
+C51 COMPILER V9.52.0.0   KEY                                                               11/02/2016 17:54:46 PAGE 1   
+
+
+C51 COMPILER V9.52.0.0, COMPILATION OF MODULE KEY
+OBJECT MODULE PLACED IN .\key.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE ..\key.c BROWSE INCDIR(..\..\4���������;..\..\lcd1602) DEBUG OBJECTEXTEND 
+                    -TABS(2) OBJECT(.\key.obj)
+
+line level    source
+
+   1          /*
+   2            NAME: key.c
+   3            DATE: 2016.10.28
+   4            AUTHOR: 牛亚犇
+   5            E-MAIL: niuyabeng@126.com
+   6          */
+   7          //
+   8          /*  
+   9            说明:
+  10            1、适用于4*4矩阵键盘
+  11            2、采用查询方式扫描按键
+  12            3、行反转法扫描按键
+  13            4、每个按键支持3种工作方式
+  14              1>单击:单击时间不能超过T_KEY_HOLD_MIN毫秒;
+  15                   按键抬起后处理单击事件.
+  16                   
+  17              2>双击:两次单击的间隔不超过T_KEY_DOUBLE_CLICK毫秒;
+  18                   第二次单击时间不能超过T_KEY_HOLD_MIN毫秒;
+  19                   第二次单击按键抬起后处理双击事件。
+  20                   
+  21              3>长按:单击时间超过T_KEY_HOLD_MIN毫秒;
+  22                   按键抬起后处理长按事件。
+  23                   
+  24            
+  25            测试平台:STC90C516RD+ 、晶振11.0592MHz。
+  26          */
+  27          
+  28          #include "key.h"
+  29          
+  30          u16 t_key_dbck = 0;
+  31          u16 t_key_hold = 0;
+  32          u16 t_db_delay = 0;
+  33          
+  34          void t_flag_count_up(void)
+  35          {
+  36   1        if(t_key_dbck < T_KEY_DOUBLE_CLICK)
+  37   1          t_key_dbck++;
+  38   1        else 
+  39   1          t_key_dbck = T_KEY_DOUBLE_CLICK;    //避免出现t_key_double_click溢出
+  40   1        
+  41   1        if(t_key_hold < T_KEY_HOLD_MIN)
+  42   1          t_key_hold++;
+  43   1        else
+  44   1          t_key_hold = T_KEY_HOLD_MIN;
+  45   1        
+  46   1        if(t_db_delay < T_KEY_DOUBLE_CLICK)
+  47   1          t_db_delay++;
+  48   1        else
+  49   1          t_db_delay = T_KEY_DOUBLE_CLICK;
+  50   1      }
+  51          
+  52          void key_delay(u16 n_ms)
+  53          {
+  54   1        u8 a,b,c;
+C51 COMPILER V9.52.0.0   KEY                                                               11/02/2016 17:54:46 PAGE 2   
+
+  55   1          while(n_ms--)
+  56   1        {
+  57   2          for(c=1;c>0;c--)
+  58   2            for(b=142;b>0;b--)
+  59   2              for(a=2;a>0;a--);
+  60   2        }
+  61   1      }
+  62          
+  63          u8 is_key_down(u8 *line,u8 *column)
+  64          {
+  65   1        u8 keytemp = 0;
+  66   1        
+  67   1        KEY_PORT = KEY_LINE;
+  68   1        keytemp  = KEY_PORT;
+  69   1        keytemp &= 0x0f;
+  70   1        if(keytemp != 0x0f)   //有键盘按下
+  71   1        {
+  72   2          key_delay(10);
+  73   2          if(keytemp != 0x0f)  //消抖后按键still down
+  74   2          {
+  75   3            
+  76   3            switch(keytemp)
+  77   3            {
+  78   4              //保存列号码
+  79   4              case 0x0e: *column = 4; break;
+  80   4              case 0x0d: *column = 3; break;
+  81   4              case 0x0b: *column = 2; break;
+  82   4              case 0x07: *column = 1; break;
+  83   4              default  : *column = 0; break;
+  84   4            }
+  85   3              
+  86   3            KEY_PORT = KEY_COLUMN;        //反转
+  87   3            keytemp  = KEY_PORT;
+  88   3            keytemp &= 0xf0;
+  89   3            switch(keytemp)
+  90   3            {
+  91   4              //保存行号码
+  92   4              case 0xe0: *line = 4; break;
+  93   4              case 0xd0: *line = 3; break;
+  94   4              case 0xb0: *line = 2; break;
+  95   4              case 0x70: *line = 1; break;
+  96   4              default  : *line = 0; break;
+  97   4            }
+  98   3              
+  99   3            return 1;   //按键确实按下就返回1表示按键确实按下，并且编码识别成功。
+ 100   3              
+ 101   3          }
+ 102   2          else return 0;  
+ 103   2        }
+ 104   1        else return 0;    
+ 105   1      }
+ 106          
+ 107          
+ 108          u8 is_key_up(void)
+ 109          {
+ 110   1        u8 keytemp = 0;
+ 111   1        
+ 112   1        KEY_PORT = KEY_LINE;
+ 113   1        keytemp  = KEY_PORT;
+ 114   1        keytemp &= 0x0f;
+ 115   1        if(0x0f == keytemp)   
+ 116   1        {
+C51 COMPILER V9.52.0.0   KEY                                                               11/02/2016 17:54:46 PAGE 3   
+
+ 117   2          key_delay(10);
+ 118   2          if(0x0f == keytemp)  //消抖后按键still up
+ 119   2          {
+ 120   3            return 1;
+ 121   3          }
+ 122   2          else 
+ 123   2            return 0;
+ 124   2        }
+ 125   1        else 
+ 126   1          return 0;
+ 127   1            
+ 128   1      }
+ 129          
+ 130          
+ 131          u8 key_mode_value(u8 *line,u8 *column)
+ 132          {
+ 133   1        static unsigned char linetemp1   = 0;
+ 134   1        static unsigned char columntemp1 = 0;
+ 135   1        static unsigned char linetemp2   = 0;
+ 136   1        static unsigned char columntemp2 = 0;
+ 137   1        static unsigned char t_temp    = 0;
+ 138   1             unsigned char KEYDOWN   = 0;
+ 139   1        
+ 140   1        if(is_key_down(line,column))  //1、按键按下了
+ 141   1        {
+ 142   2          linetemp2   = linetemp1;      
+ 143   2          columntemp2 = columntemp1;
+ 144   2          linetemp1   = *line;
+ 145   2          columntemp1 = *column;
+ 146   2          t_key_hold  = 0;
+ 147   2          t_temp    = t_key_dbck;
+ 148   2          KEYDOWN   = 1;
+ 149   2        }
+ 150   1        else              //2、按键没按下直接返回MODE_NONECLICK，后面的的都不用处理了。
+ 151   1          return MODE_NONECLICK;
+ 152   1        
+ 153   1        if(KEYDOWN==1)
+ 154   1        {
+ 155   2          while(1)
+ 156   2          {
+ 157   3            if(is_key_up())               //按键抬起了(没抬起就死循环等着抬起)
+ 158   3            {
+ 159   4              t_key_dbck = 0;
+ 160   4              t_db_delay = 0;
+ 161   4              
+ 162   4              if(t_key_hold>=T_KEY_HOLD_MIN)
+ 163   4                return MODE_HOLD;         //③长按事件；
+ 164   4              
+ 165   4              while(t_db_delay<T_KEY_DOUBLE_CLICK)        
+ 166   4              {
+ 167   5                if(is_key_down(line,column))    //T_DB_DELAY时间内按键又按下，很可能是连击，二进宫
+ 168   5                  return key_mode_value(line,column);
+ 169   5              }
+ 170   4                
+ 171   4              if((t_temp<T_KEY_DOUBLE_CLICK)&&(linetemp2==linetemp1)&&(columntemp2==columntemp1))
+ 172   4                return MODE_DBCLICK;        //①连击事件；
+ 173   4              else  
+ 174   4                return MODE_ONECLICK;       //②单击事件；
+ 175   4            } 
+ 176   3          }
+ 177   2        }
+ 178   1        else
+C51 COMPILER V9.52.0.0   KEY                                                               11/02/2016 17:54:46 PAGE 4   
+
+ 179   1          return MODE_NONECLICK;
+ 180   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    516    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     11      14
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
